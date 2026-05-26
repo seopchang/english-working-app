@@ -18,22 +18,19 @@ const defaultProgress = () => ({
   reviewCount: 0,
 });
 
-// ── 지문 ──────────────────────────────────────────────
+// ── 지문 (사용자별 독립) ──────────────────────────────
 
 export const getPassages = async () => {
   try {
     const uid = getCurrentUid();
-    const q = query(collection(db, 'passages'), orderBy('order', 'asc'));
+    if (!uid) return [];
+    const q = query(collection(db, 'users', uid, 'passages'), orderBy('order', 'asc'));
     const [passagesSnap, progressSnap] = await Promise.all([
       getDocs(q),
-      uid
-        ? getDocs(collection(db, 'progress', uid, 'passages'))
-        : Promise.resolve({ docs: [] }),
+      getDocs(collection(db, 'progress', uid, 'passages')),
     ]);
-
     const progressMap = {};
     progressSnap.docs.forEach(d => { progressMap[d.id] = d.data(); });
-
     return passagesSnap.docs.map(d => ({
       id: d.id,
       ...d.data(),
@@ -48,14 +45,13 @@ export const getPassages = async () => {
 export const savePassage = async (passage) => {
   try {
     const uid = getCurrentUid();
+    if (!uid) return false;
     const { progress, ...passageData } = passage;
-    const ref = doc(db, 'passages', passage.id);
+    const ref = doc(db, 'users', uid, 'passages', passage.id);
     const existing = await getDoc(ref);
     const order = existing.exists() ? existing.data().order : -Date.now();
-
     await setDoc(ref, {
       ...passageData,
-      ownerId: uid,
       order: passageData.order ?? order,
       updatedAt: serverTimestamp(),
     });
@@ -68,9 +64,11 @@ export const savePassage = async (passage) => {
 
 export const savePassages = async (passages) => {
   try {
+    const uid = getCurrentUid();
+    if (!uid) return false;
     const batch = writeBatch(db);
     passages.forEach((p, index) => {
-      batch.update(doc(db, 'passages', p.id), { order: index });
+      batch.update(doc(db, 'users', uid, 'passages', p.id), { order: index });
     });
     await batch.commit();
     return true;
@@ -82,7 +80,9 @@ export const savePassages = async (passages) => {
 
 export const deletePassage = async (id) => {
   try {
-    await deleteDoc(doc(db, 'passages', id));
+    const uid = getCurrentUid();
+    if (!uid) return false;
+    await deleteDoc(doc(db, 'users', uid, 'passages', id));
     return true;
   } catch (e) {
     console.error('deletePassage error:', e);
@@ -93,11 +93,10 @@ export const deletePassage = async (id) => {
 export const getPassageById = async (id) => {
   try {
     const uid = getCurrentUid();
+    if (!uid) return null;
     const [passageSnap, progressSnap] = await Promise.all([
-      getDoc(doc(db, 'passages', id)),
-      uid
-        ? getDoc(doc(db, 'progress', uid, 'passages', id))
-        : Promise.resolve({ exists: () => false, data: () => null }),
+      getDoc(doc(db, 'users', uid, 'passages', id)),
+      getDoc(doc(db, 'progress', uid, 'passages', id)),
     ]);
     if (!passageSnap.exists()) return null;
     return {
@@ -113,7 +112,9 @@ export const getPassageById = async (id) => {
 
 export const updatePassageTitle = async (id, newTitle) => {
   try {
-    await updateDoc(doc(db, 'passages', id), { title: newTitle });
+    const uid = getCurrentUid();
+    if (!uid) return false;
+    await updateDoc(doc(db, 'users', uid, 'passages', id), { title: newTitle });
     return true;
   } catch (e) {
     console.error('updatePassageTitle error:', e);
@@ -121,7 +122,7 @@ export const updatePassageTitle = async (id, newTitle) => {
   }
 };
 
-// ── 진도율 (사용자별 개별 저장) ──────────────────────
+// ── 진도율 (사용자별) ────────────────────────────────
 
 export const updatePassageProgress = async (passageId, progressType, data) => {
   try {
@@ -148,11 +149,13 @@ export const incrementReviewCount = async (passageId) => {
   }
 };
 
-// ── 폴더 ──────────────────────────────────────────────
+// ── 폴더 (사용자별 독립) ─────────────────────────────
 
 export const getFolders = async () => {
   try {
-    const q = query(collection(db, 'folders'), orderBy('order', 'asc'));
+    const uid = getCurrentUid();
+    if (!uid) return [];
+    const q = query(collection(db, 'users', uid, 'folders'), orderBy('order', 'asc'));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (e) {
@@ -163,9 +166,11 @@ export const getFolders = async () => {
 
 export const saveFolders = async (folders) => {
   try {
+    const uid = getCurrentUid();
+    if (!uid) return false;
     const batch = writeBatch(db);
     folders.forEach((f, index) => {
-      batch.update(doc(db, 'folders', f.id), { order: index });
+      batch.update(doc(db, 'users', uid, 'folders', f.id), { order: index });
     });
     await batch.commit();
     return true;
@@ -178,14 +183,14 @@ export const saveFolders = async (folders) => {
 export const createFolder = async (name) => {
   try {
     const uid = getCurrentUid();
+    if (!uid) return null;
     const folder = {
       id: `folder_${Date.now()}`,
       name,
-      ownerId: uid,
       order: -Date.now(),
       createdAt: serverTimestamp(),
     };
-    await setDoc(doc(db, 'folders', folder.id), folder);
+    await setDoc(doc(db, 'users', uid, 'folders', folder.id), folder);
     return folder;
   } catch (e) {
     console.error('createFolder error:', e);
@@ -195,7 +200,9 @@ export const createFolder = async (name) => {
 
 export const updateFolderName = async (id, name) => {
   try {
-    await updateDoc(doc(db, 'folders', id), { name });
+    const uid = getCurrentUid();
+    if (!uid) return false;
+    await updateDoc(doc(db, 'users', uid, 'folders', id), { name });
     return true;
   } catch (e) {
     console.error('updateFolderName error:', e);
@@ -205,10 +212,12 @@ export const updateFolderName = async (id, name) => {
 
 export const deleteFolder = async (id) => {
   try {
+    const uid = getCurrentUid();
+    if (!uid) return false;
     const batch = writeBatch(db);
-    batch.delete(doc(db, 'folders', id));
+    batch.delete(doc(db, 'users', uid, 'folders', id));
     const passagesSnap = await getDocs(
-      query(collection(db, 'passages'), where('folderId', '==', id))
+      query(collection(db, 'users', uid, 'passages'), where('folderId', '==', id))
     );
     passagesSnap.docs.forEach(d => batch.update(d.ref, { folderId: null }));
     await batch.commit();
@@ -221,7 +230,9 @@ export const deleteFolder = async (id) => {
 
 export const movePassageToFolder = async (passageId, folderId) => {
   try {
-    await updateDoc(doc(db, 'passages', passageId), { folderId: folderId || null });
+    const uid = getCurrentUid();
+    if (!uid) return false;
+    await updateDoc(doc(db, 'users', uid, 'passages', passageId), { folderId: folderId || null });
     return true;
   } catch (e) {
     console.error('movePassageToFolder error:', e);
@@ -229,7 +240,7 @@ export const movePassageToFolder = async (passageId, folderId) => {
   }
 };
 
-// ── 설정 (API 키는 기기 로컬에 유지) ─────────────────
+// ── 설정 (기기 로컬) ─────────────────────────────────
 
 const DEFAULT_SETTINGS = { apiKey: '', aiProvider: 'gemini', groqApiKey: '' };
 
@@ -252,13 +263,15 @@ export const saveSettings = async (settings) => {
   }
 };
 
-// ── 데이터 초기화 (관리자용) ─────────────────────────
+// ── 데이터 초기화 ────────────────────────────────────
 
 export const resetAllData = async () => {
   try {
+    const uid = getCurrentUid();
+    if (!uid) return false;
     const [passagesSnap, foldersSnap] = await Promise.all([
-      getDocs(collection(db, 'passages')),
-      getDocs(collection(db, 'folders')),
+      getDocs(collection(db, 'users', uid, 'passages')),
+      getDocs(collection(db, 'users', uid, 'folders')),
     ]);
     const batch = writeBatch(db);
     passagesSnap.docs.forEach(d => batch.delete(d.ref));
@@ -273,7 +286,6 @@ export const resetAllData = async () => {
 
 // ── 공유 팩 ──────────────────────────────────────────
 
-// 6자리 랜덤 대문자+숫자 코드 생성
 const generateCode = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
@@ -281,33 +293,28 @@ const generateCode = () => {
   return code;
 };
 
-// 공유 팩 생성: 선택된 지문 id 목록 + 폴더 id 목록을 받아서 데이터 통째로 저장
 export const createSharedPack = async ({ title, passageIds, folderIds }) => {
   try {
     const uid = getCurrentUid();
     if (!uid) return { success: false };
 
-    // 선택된 지문들 데이터 수집
+    // 선택된 지문 수집
     const passageSnaps = await Promise.all(
-      passageIds.map(id => getDoc(doc(db, 'passages', id)))
+      passageIds.map(id => getDoc(doc(db, 'users', uid, 'passages', id)))
     );
-    const passagesData = passageSnaps
-      .filter(s => s.exists())
-      .map(s => ({ id: s.id, ...s.data() }));
+    const passagesData = passageSnaps.filter(s => s.exists()).map(s => ({ id: s.id, ...s.data() }));
 
-    // 선택된 폴더들 데이터 수집
+    // 선택된 폴더 수집
     const folderSnaps = await Promise.all(
-      folderIds.map(id => getDoc(doc(db, 'folders', id)))
+      folderIds.map(id => getDoc(doc(db, 'users', uid, 'folders', id)))
     );
-    const foldersData = folderSnaps
-      .filter(s => s.exists())
-      .map(s => ({ id: s.id, ...s.data() }));
+    const foldersData = folderSnaps.filter(s => s.exists()).map(s => ({ id: s.id, ...s.data() }));
 
     // 폴더에 속한 지문도 포함
     const folderPassageSnaps = folderIds.length > 0
       ? await Promise.all(
           folderIds.map(fid =>
-            getDocs(query(collection(db, 'passages'), where('folderId', '==', fid)))
+            getDocs(query(collection(db, 'users', uid, 'passages'), where('folderId', '==', fid)))
           )
         )
       : [];
@@ -315,12 +322,10 @@ export const createSharedPack = async ({ title, passageIds, folderIds }) => {
       snap.docs.map(d => ({ id: d.id, ...d.data() }))
     );
 
-    // 중복 제거하여 전체 지문 합치기
+    // 중복 제거
     const allPassageIds = new Set(passagesData.map(p => p.id));
     const allPassages = [...passagesData];
-    folderPassages.forEach(p => {
-      if (!allPassageIds.has(p.id)) allPassages.push(p);
-    });
+    folderPassages.forEach(p => { if (!allPassageIds.has(p.id)) allPassages.push(p); });
 
     // 코드 생성 (중복 체크)
     let code;
@@ -348,7 +353,6 @@ export const createSharedPack = async ({ title, passageIds, folderIds }) => {
   }
 };
 
-// 공유 코드로 팩 조회
 export const getSharedPack = async (code) => {
   try {
     const snap = await getDoc(doc(db, 'sharedPacks', code.toUpperCase().trim()));
@@ -360,37 +364,34 @@ export const getSharedPack = async (code) => {
   }
 };
 
-// 공유 팩 지문들을 내 계정으로 복사
 export const importSharedPack = async (pack) => {
   try {
     const uid = getCurrentUid();
     if (!uid) return false;
 
-    // 폴더 먼저 생성 (id 매핑 테이블)
+    // 폴더 먼저 생성
     const folderIdMap = {};
     for (const folder of pack.folders) {
       const newFolderId = `folder_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       folderIdMap[folder.id] = newFolderId;
-      await setDoc(doc(db, 'folders', newFolderId), {
+      await setDoc(doc(db, 'users', uid, 'folders', newFolderId), {
         id: newFolderId,
         name: folder.name,
-        ownerId: uid,
         order: -Date.now(),
         createdAt: serverTimestamp(),
       });
     }
 
-    // 지문 복사 (폴더 id 매핑 적용)
+    // 지문 복사
     const batch = writeBatch(db);
     pack.passages.forEach((p, index) => {
       const newId = `passage_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`;
       const newFolderId = p.folderId ? (folderIdMap[p.folderId] ?? null) : null;
       const { progress, id: _id, ...passageData } = p;
-      batch.set(doc(db, 'passages', newId), {
+      batch.set(doc(db, 'users', uid, 'passages', newId), {
         ...passageData,
         id: newId,
         folderId: newFolderId,
-        ownerId: uid,
         order: -Date.now() + index,
         importedFrom: pack.code,
         updatedAt: serverTimestamp(),
