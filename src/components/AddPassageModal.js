@@ -10,8 +10,8 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { showAlert } from '../utils/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getSettings, savePassage } from '../utils/storage';
@@ -52,7 +52,7 @@ export default function AddPassageModal({ visible, onClose, onSuccess }) {
     const activeKey = settings.aiProvider === 'groq' ? settings.groqApiKey : settings.apiKey;
     if (!activeKey) {
       const name = settings.aiProvider === 'groq' ? 'Groq' : 'Gemini';
-      Alert.alert('API 키 없음', `설정 탭에서 ${name} API 키를 먼저 입력해주세요.`, [{ text: '확인' }]);
+      showAlert('API 키 없음', `설정 탭에서 ${name} API 키를 먼저 입력해주세요.`);
       return null;
     }
     return settings;
@@ -71,7 +71,7 @@ export default function AddPassageModal({ visible, onClose, onSuccess }) {
       setSentencePairs(pairs);
       setStep('review');
     } catch (e) {
-      Alert.alert('오류', e.message || '문장 분석 중 오류가 발생했습니다.');
+      showAlert('오류', e.message || '문장 분석 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
       setLoadingMsg('');
@@ -119,7 +119,7 @@ export default function AddPassageModal({ visible, onClose, onSuccess }) {
       await savePassage(passage);
       onSuccess();
     } catch (e) {
-      Alert.alert('오류 발생', e.message || '알 수 없는 오류가 발생했습니다.');
+      showAlert('오류 발생', e.message || '알 수 없는 오류가 발생했습니다.');
       setStep('review');
       setLoading(false);
       setLoadingMsg('');

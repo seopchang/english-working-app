@@ -5,13 +5,13 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   TextInput,
   Modal,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { showAlert, showConfirm } from '../utils/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -138,7 +138,7 @@ export default function HomeScreen({ navigation }) {
   // ── 공유 팩 생성 ────────────────────────────────────
   const handleOpenShareModal = () => {
     if (totalSelected === 0) {
-      Alert.alert('선택 없음', '공유할 지문 또는 폴더를 먼저 선택해주세요.');
+      showAlert('선택 없음', '공유할 지문 또는 폴더를 먼저 선택해주세요.');
       return;
     }
     setShareTitle('');
@@ -148,7 +148,7 @@ export default function HomeScreen({ navigation }) {
 
   const handleCreateShare = async () => {
     if (!shareTitle.trim()) {
-      Alert.alert('제목 없음', '팩 제목을 입력해주세요.');
+      showAlert('제목 없음', '팩 제목을 입력해주세요.');
       return;
     }
     setShareLoading(true);
@@ -161,7 +161,7 @@ export default function HomeScreen({ navigation }) {
     if (result.success) {
       setShareResult({ code: result.code });
     } else {
-      Alert.alert('오류', '공유 코드 생성에 실패했습니다.');
+      showAlert('오류', '공유 코드 생성에 실패했습니다.');
     }
   };
 
@@ -177,7 +177,7 @@ export default function HomeScreen({ navigation }) {
   // ── 코드로 받기 ─────────────────────────────────────
   const handleSearchCode = async () => {
     if (importCode.trim().length < 6) {
-      Alert.alert('오류', '6자리 코드를 입력해주세요.');
+      showAlert('오류', '6자리 코드를 입력해주세요.');
       return;
     }
     setImportLoading(true);
@@ -185,7 +185,7 @@ export default function HomeScreen({ navigation }) {
     const pack = await getSharedPack(importCode.trim());
     setImportLoading(false);
     if (!pack) {
-      Alert.alert('없음', '해당 코드의 공유 팩을 찾을 수 없습니다.');
+      showAlert('없음', '해당 코드의 공유 팩을 찾을 수 없습니다.');
       return;
     }
     setImportPreview(pack);
@@ -201,24 +201,17 @@ export default function HomeScreen({ navigation }) {
       setImportCode('');
       setImportPreview(null);
       load();
-      Alert.alert('완료', `${importPreview.passageCount}개 지문을 가져왔습니다.`);
+      showAlert('완료', `${importPreview.passageCount}개 지문을 가져왔습니다.`);
     } else {
-      Alert.alert('오류', '가져오기에 실패했습니다.');
+      showAlert('오류', '가져오기에 실패했습니다.');
     }
   };
 
   // ── 지문 핸들러 ──────────────────────────────────────
   const handleDelete = (id, title) => {
-    if (Platform.OS === 'web') {
-      if (window.confirm(`"${title}"를 삭제하시겠습니까?`)) {
-        deletePassage(id).then(() => load());
-      }
-    } else {
-      Alert.alert('지문 삭제', `"${title}"를 삭제하시겠습니까?`, [
-        { text: '취소', style: 'cancel' },
-        { text: '삭제', style: 'destructive', onPress: async () => { await deletePassage(id); load(); } },
-      ]);
-    }
+    showConfirm('지문 삭제', `"${title}"를 삭제하시겠습니까?`, async () => {
+      await deletePassage(id); load();
+    });
   };
 
   const handleMovePassage = async (index, direction, list) => {
@@ -266,16 +259,9 @@ export default function HomeScreen({ navigation }) {
   };
 
   const handleDeleteFolder = (id, name) => {
-    if (Platform.OS === 'web') {
-      if (window.confirm(`"${name}" 폴더를 삭제할까요?\n폴더 안 지문은 홈 목록으로 돌아옵니다.`)) {
-        deleteFolder(id).then(() => load());
-      }
-    } else {
-      Alert.alert('폴더 삭제', `"${name}" 폴더를 삭제할까요?\n폴더 안 지문은 홈 목록으로 돌아옵니다.`, [
-        { text: '취소', style: 'cancel' },
-        { text: '삭제', style: 'destructive', onPress: async () => { await deleteFolder(id); load(); } },
-      ]);
-    }
+    showConfirm('폴더 삭제', `"${name}" 폴더를 삭제할까요?\n폴더 안 지문은 홈 목록으로 돌아옵니다.`, async () => {
+      await deleteFolder(id); load();
+    });
   };
 
   const handleMoveFolderOrder = async (index, direction) => {

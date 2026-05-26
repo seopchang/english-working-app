@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
+import { showAlert } from '../utils/alert';
 import {
   onAuthStateChanged,
   signOut as firebaseSignOut,
@@ -33,7 +34,7 @@ export function AuthProvider({ children }) {
       const { id_token } = response.params;
       const credential = GoogleAuthProvider.credential(id_token);
       signInWithCredential(auth, credential).catch((e) => {
-        Alert.alert('로그인 오류', e.message);
+        showAlert('로그인 오류', e.message);
       });
     }
   }, [response]);
@@ -76,7 +77,7 @@ export function AuthProvider({ children }) {
       try {
         await signInWithPopup(auth, provider);
       } catch (e) {
-        Alert.alert('로그인 오류', e.message);
+        showAlert('로그인 오류', e.message);
       }
     } else {
       promptAsync();
