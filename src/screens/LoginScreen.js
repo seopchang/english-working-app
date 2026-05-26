@@ -78,9 +78,9 @@ export default function LoginScreen() {
         {/* 로그인 버튼 */}
         <View style={s.btnArea}>
           <TouchableOpacity
-            style={[s.googleBtn, (signingIn || !request) && s.btnDisabled]}
+            style={[s.googleBtn, (signingIn || (Platform.OS !== 'web' && !request)) && s.btnDisabled]}
             onPress={handleGoogleSignIn}
-            disabled={signingIn || !request}
+            disabled={signingIn || (Platform.OS !== 'web' && !request)}
             activeOpacity={0.85}
           >
             {signingIn ? (
