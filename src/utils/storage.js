@@ -270,3 +270,136 @@ export const resetAllData = async () => {
     return false;
   }
 };
+
+// ── 공유 팩 ──────────────────────────────────────────
+
+// 6자리 랜덤 대문자+숫자 코드 생성
+const generateCode = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+};
+
+// 공유 팩 생성: 선택된 지문 id 목록 + 폴더 id 목록을 받아서 데이터 통째로 저장
+export const createSharedPack = async ({ title, passageIds, folderIds }) => {
+  try {
+    const uid = getCurrentUid();
+    if (!uid) return { success: false };
+
+    // 선택된 지문들 데이터 수집
+    const passageSnaps = await Promise.all(
+      passageIds.map(id => getDoc(doc(db, 'passages', id)))
+    );
+    const passagesData = passageSnaps
+      .filter(s => s.exists())
+      .map(s => ({ id: s.id, ...s.data() }));
+
+    // 선택된 폴더들 데이터 수집
+    const folderSnaps = await Promise.all(
+      folderIds.map(id => getDoc(doc(db, 'folders', id)))
+    );
+    const foldersData = folderSnaps
+      .filter(s => s.exists())
+      .map(s => ({ id: s.id, ...s.data() }));
+
+    // 폴더에 속한 지문도 포함
+    const folderPassageSnaps = folderIds.length > 0
+      ? await Promise.all(
+          folderIds.map(fid =>
+            getDocs(query(collection(db, 'passages'), where('folderId', '==', fid)))
+          )
+        )
+      : [];
+    const folderPassages = folderPassageSnaps.flatMap(snap =>
+      snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    );
+
+    // 중복 제거하여 전체 지문 합치기
+    const allPassageIds = new Set(passagesData.map(p => p.id));
+    const allPassages = [...passagesData];
+    folderPassages.forEach(p => {
+      if (!allPassageIds.has(p.id)) allPassages.push(p);
+    });
+
+    // 코드 생성 (중복 체크)
+    let code;
+    let exists = true;
+    while (exists) {
+      code = generateCode();
+      const snap = await getDoc(doc(db, 'sharedPacks', code));
+      exists = snap.exists();
+    }
+
+    await setDoc(doc(db, 'sharedPacks', code), {
+      code,
+      title,
+      createdBy: uid,
+      passages: allPassages,
+      folders: foldersData,
+      passageCount: allPassages.length,
+      createdAt: serverTimestamp(),
+    });
+
+    return { success: true, code };
+  } catch (e) {
+    console.error('createSharedPack error:', e);
+    return { success: false };
+  }
+};
+
+// 공유 코드로 팩 조회
+export const getSharedPack = async (code) => {
+  try {
+    const snap = await getDoc(doc(db, 'sharedPacks', code.toUpperCase().trim()));
+    if (!snap.exists()) return null;
+    return snap.data();
+  } catch (e) {
+    console.error('getSharedPack error:', e);
+    return null;
+  }
+};
+
+// 공유 팩 지문들을 내 계정으로 복사
+export const importSharedPack = async (pack) => {
+  try {
+    const uid = getCurrentUid();
+    if (!uid) return false;
+
+    // 폴더 먼저 생성 (id 매핑 테이블)
+    const folderIdMap = {};
+    for (const folder of pack.folders) {
+      const newFolderId = `folder_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      folderIdMap[folder.id] = newFolderId;
+      await setDoc(doc(db, 'folders', newFolderId), {
+        id: newFolderId,
+        name: folder.name,
+        ownerId: uid,
+        order: -Date.now(),
+        createdAt: serverTimestamp(),
+      });
+    }
+
+    // 지문 복사 (폴더 id 매핑 적용)
+    const batch = writeBatch(db);
+    pack.passages.forEach((p, index) => {
+      const newId = `passage_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`;
+      const newFolderId = p.folderId ? (folderIdMap[p.folderId] ?? null) : null;
+      const { progress, id: _id, ...passageData } = p;
+      batch.set(doc(db, 'passages', newId), {
+        ...passageData,
+        id: newId,
+        folderId: newFolderId,
+        ownerId: uid,
+        order: -Date.now() + index,
+        importedFrom: pack.code,
+        updatedAt: serverTimestamp(),
+      });
+    });
+    await batch.commit();
+    return true;
+  } catch (e) {
+    console.error('importSharedPack error:', e);
+    return false;
+  }
+};
