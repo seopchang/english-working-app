@@ -21,6 +21,12 @@
         "backgroundColor": "#ffffff"
       }
     },
+    "web": {
+      "title": "지문냠냠",
+      "description": "영어 지문 학습 도우미",
+      "lang": "ko",
+      "favicon": "./assets/icon.png"
+    },
     "plugins": [
       "expo-web-browser"
     ]
