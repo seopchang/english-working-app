@@ -1,0 +1,67 @@
+name: 📱 APK 빌드 (지문냠냠)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Android APK 빌드
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 🟢 Node.js 설치
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: ☕ JDK 17 설치
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: 📦 npm install
+        run: npm install --legacy-peer-deps
+
+      - name: 🔧 Expo Prebuild (Android 네이티브 프로젝트 생성)
+        run: npx expo prebuild --platform android --no-install
+
+      - name: 🔨 APK 빌드 (Gradle)
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+
+      - name: 📤 APK 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: 지문냠냠-${{ github.run_number }}.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: 📧 이메일 발송
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "✅ [지문냠냠] APK 빌드 완료 - #${{ github.run_number }}"
+          body: |
+            지문냠냠 APK 빌드가 완료되었습니다!
+
+            📦 빌드 번호: #${{ github.run_number }}
+            🔗 다운로드: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            위 링크 → Artifacts 섹션에서 APK를 다운로드하세요.
+          to: ${{ secrets.MAIL_TO }}
+          from: GitHub Actions <${{ secrets.MAIL_USERNAME }}>
+          attachments: android/app/build/outputs/apk/debug/app-debug.apk

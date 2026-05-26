@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "지문냠냠",
+    "slug": "english-working-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "scheme": "englishworkingapp",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.englishworking.app"
+    },
+    "android": {
+      "package": "com.englishworking.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "plugins": [
+      "expo-web-browser"
+    ]
+  }
+}
