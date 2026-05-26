@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -66,17 +67,28 @@ export default function SettingsScreen() {
   };
 
   const handleReset = () => {
-    Alert.alert('데이터 초기화', '모든 학습 데이터가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.', [
-      { text: '취소', style: 'cancel' },
-      { text: '초기화', style: 'destructive', onPress: async () => { await resetAllData(); Alert.alert('완료', '모든 데이터가 삭제되었습니다.'); } },
-    ]);
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('모든 학습 데이터가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.')
+      : null;
+    if (Platform.OS === 'web') {
+      if (confirmed) resetAllData().then(() => window.alert('모든 데이터가 삭제되었습니다.'));
+    } else {
+      Alert.alert('데이터 초기화', '모든 학습 데이터가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.', [
+        { text: '취소', style: 'cancel' },
+        { text: '초기화', style: 'destructive', onPress: async () => { await resetAllData(); Alert.alert('완료', '모든 데이터가 삭제되었습니다.'); } },
+      ]);
+    }
   };
 
   const handleSignOut = () => {
-    Alert.alert('로그아웃', '정말 로그아웃하시겠습니까?', [
-      { text: '취소', style: 'cancel' },
-      { text: '로그아웃', style: 'destructive', onPress: signOut },
-    ]);
+    if (Platform.OS === 'web') {
+      if (window.confirm('정말 로그아웃하시겠습니까?')) signOut();
+    } else {
+      Alert.alert('로그아웃', '정말 로그아웃하시겠습니까?', [
+        { text: '취소', style: 'cancel' },
+        { text: '로그아웃', style: 'destructive', onPress: signOut },
+      ]);
+    }
   };
 
   return (
