@@ -209,14 +209,16 @@ export default function HomeScreen({ navigation }) {
 
   // ── 지문 핸들러 ──────────────────────────────────────
   const handleDelete = (id, title) => {
-    Alert.alert('지문 삭제', `"${title}"를 삭제하시겠습니까?`, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => { await deletePassage(id); load(); },
-      },
-    ]);
+    if (Platform.OS === 'web') {
+      if (window.confirm(`"${title}"를 삭제하시겠습니까?`)) {
+        deletePassage(id).then(() => load());
+      }
+    } else {
+      Alert.alert('지문 삭제', `"${title}"를 삭제하시겠습니까?`, [
+        { text: '취소', style: 'cancel' },
+        { text: '삭제', style: 'destructive', onPress: async () => { await deletePassage(id); load(); } },
+      ]);
+    }
   };
 
   const handleMovePassage = async (index, direction, list) => {
@@ -264,14 +266,16 @@ export default function HomeScreen({ navigation }) {
   };
 
   const handleDeleteFolder = (id, name) => {
-    Alert.alert('폴더 삭제', `"${name}" 폴더를 삭제할까요?\n폴더 안 지문은 홈 목록으로 돌아옵니다.`, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => { await deleteFolder(id); load(); },
-      },
-    ]);
+    if (Platform.OS === 'web') {
+      if (window.confirm(`"${name}" 폴더를 삭제할까요?\n폴더 안 지문은 홈 목록으로 돌아옵니다.`)) {
+        deleteFolder(id).then(() => load());
+      }
+    } else {
+      Alert.alert('폴더 삭제', `"${name}" 폴더를 삭제할까요?\n폴더 안 지문은 홈 목록으로 돌아옵니다.`, [
+        { text: '취소', style: 'cancel' },
+        { text: '삭제', style: 'destructive', onPress: async () => { await deleteFolder(id); load(); } },
+      ]);
+    }
   };
 
   const handleMoveFolderOrder = async (index, direction) => {
